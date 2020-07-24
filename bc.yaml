@@ -1,0 +1,59 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: pipeline-jee
+  namespace: cicd-andrew
+  selfLink: /apis/build.openshift.io/v1/namespaces/cicd-andrew/buildconfigs/pipeline-jee
+  uid: 7ffa362e-cdb1-11ea-a3b6-0a748cdd451b
+  resourceVersion: '190263'
+  creationTimestamp: '2020-07-24T13:28:02Z'
+  labels:
+    name: pipeline-jee
+spec:
+  nodeSelector: {}
+  output: {}
+  resources: {}
+  successfulBuildsHistoryLimit: 5
+  failedBuildsHistoryLimit: 5
+  strategy:
+    type: JenkinsPipeline
+    jenkinsPipelineStrategy:
+      jenkinsfile: |-
+        pipeline {
+                  agent { label "maven" }
+                  stages {
+                    stage("Clone Source") {
+                      steps {
+                        checkout([$class: 'GitSCM',
+                                    branches: [[name: '*/master']],
+                                    extensions: [
+                                      [$class: 'RelativeTargetDirectory', relativeTargetDir: 'mavenapp']
+                                    ],
+                                    userRemoteConfigs: [[url: 'https://github.com/openshift/openshift-jee-sample.git']]
+                                ])
+                      }
+                    }
+                    stage("Build WAR") {
+                      steps {
+                        dir('mavenapp') {
+                          sh 'mvn clean package -Popenshift'
+                        }
+                      }
+                    }
+                    stage("Build Image") {
+                      steps {
+                        dir('mavenapp/target') {
+                          sh 'oc start-build mavenapp --from-dir . --follow'
+                        }
+                      }
+                    }
+                  }
+                }
+  postCommit: {}
+  source:
+    type: None
+  triggers:
+    - type: ConfigChange
+  runPolicy: Serial
+status:
+  lastVersion: 2
